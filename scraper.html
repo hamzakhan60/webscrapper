@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web Scraper</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #080809;
+  --panel: #0e0e10;
+  --surface: #17171a;
+  --surface2: #1e1e22;
+  --border: #252528;
+  --border2: #2e2e33;
+  --accent: #f0b429;
+  --accent2: #ffd166;
+  --accent-dim: rgba(240,180,41,0.1);
+  --text: #ededf0;
+  --text-muted: #7c7c8a;
+  --text-dim: #3e3e48;
+  --success: #34d399;
+  --error: #f87171;
+  --r: 12px;
+  --r-sm: 8px;
+  --r-xs: 6px;
+}
+
+html, body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+}
+
+/* NAV */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(14,14,16,0.85);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-brand { display: flex; align-items: center; gap: 10px; }
+
+.nav-logo {
+  width: 32px; height: 32px;
+  background: var(--accent);
+  border-radius: var(--r-xs);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.nav-title { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+.nav-subtitle { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); }
+
+.nav-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 5px 12px 5px 8px;
+  font-size: 11px; font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  background: var(--success); border-radius: 50%;
+  box-shadow: 0 0 6px var(--success);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* MAIN GRID */
+.main {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  min-height: calc(100vh - 61px);
+}
+
+/* SIDEBAR */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 28px 20px 24px;
+  gap: 20px;
+}
+
+.section {
+  display: flex; flex-direction: column; gap: 8px;
+  animation: slideIn 0.3s ease both;
+}
+.section:nth-child(1){animation-delay:.05s}
+.section:nth-child(2){animation-delay:.1s}
+.section:nth-child(3){animation-delay:.15s}
+.section:nth-child(4){animation-delay:.2s}
+
+@keyframes slideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+.section-label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.section-label-icon { width:16px; height:16px; display:flex; align-items:center; justify-content:center; color:var(--accent); }
+
+/* Inputs */
+.input-group {
+  display: flex; align-items: center;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  transition: border-color .2s, box-shadow .2s;
+  overflow: hidden;
+}
+.input-group:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+.input-prefix {
+  padding: 0 12px; border-right: 1px solid var(--border);
+  height: 42px; display: flex; align-items: center;
+  color: var(--text-dim); font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; white-space: nowrap; gap: 6px;
+  flex-shrink: 0; background: var(--surface2);
+}
+
+input[type="text"], input[type="password"] {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text); font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px; padding: 10px 14px; min-width: 0;
+}
+input::placeholder { color: var(--text-dim); }
+
+.textarea-group {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  transition: border-color .2s, box-shadow .2s; overflow: hidden;
+}
+.textarea-group:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+textarea {
+  width: 100%; background: transparent; border: none; outline: none;
+  color: var(--text); font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; padding: 12px 14px; resize: none;
+  min-height: 90px; line-height: 1.6;
+}
+textarea::placeholder { color: var(--text-dim); }
+
+/* Fields */
+.fields-header { display: flex; align-items: center; justify-content: space-between; }
+
+.btn-add {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--accent-dim); border: 1px solid rgba(240,180,41,0.25);
+  color: var(--accent); font-family: 'Outfit', sans-serif;
+  font-size: 11px; font-weight: 600; padding: 4px 11px;
+  border-radius: 20px; cursor: pointer;
+  transition: all .2s; letter-spacing: .02em;
+}
+.btn-add:hover { background: rgba(240,180,41,0.18); border-color: var(--accent); transform: translateY(-1px); }
+
+.fields-list { display: flex; flex-direction: column; gap: 6px; }
+
+.field-row {
+  display: grid; grid-template-columns: 1fr 1.6fr 32px;
+  gap: 6px; align-items: center;
+  animation: fadeUp .2s ease;
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+
+.field-cols {
+  display: grid; grid-template-columns: 1fr 1.6fr 32px;
+  gap: 6px; padding: 0 2px;
+}
+.field-col-label {
+  font-size: 10px; font-weight: 500; color: var(--text-dim);
+  letter-spacing: .06em; text-transform: uppercase; padding-left: 2px;
+}
+
+.field-input {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-xs); color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  padding: 8px 10px; outline: none; width: 100%;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+.field-input::placeholder { color: var(--text-dim); }
+
+.btn-remove {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-xs); color: var(--text-dim);
+  width: 32px; height: 32px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; transition: all .15s; flex-shrink: 0;
+}
+.btn-remove:hover { border-color: var(--error); color: var(--error); background: rgba(248,113,113,0.08); }
+
+/* Run btn */
+.btn-run {
+  width: 100%; background: var(--accent); color: #000;
+  border: none; border-radius: var(--r-sm);
+  font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 700;
+  padding: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all .2s; letter-spacing: .01em; margin-top: auto;
+  position: relative; overflow: hidden;
+}
+.btn-run::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg,rgba(255,255,255,0.1) 0%,transparent 60%);
+  pointer-events: none;
+}
+.btn-run:hover:not(:disabled) { background: var(--accent2); transform: translateY(-2px); box-shadow: 0 6px 24px rgba(240,180,41,0.35); }
+.btn-run:active:not(:disabled) { transform: translateY(0); }
+.btn-run:disabled { opacity: .45; cursor: not-allowed; }
+
+/* RESULTS */
+.results-pane { display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+
+.results-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; height: 56px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel); flex-shrink: 0; gap: 12px;
+}
+
+.results-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.results-title { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+
+.result-badge {
+  display: none; align-items: center; gap: 5px;
+  background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2);
+  border-radius: 20px; padding: 2px 10px;
+  font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--success);
+}
+.result-badge.visible { display: flex; }
+
+.export-btns { display: flex; gap: 6px; flex-shrink: 0; }
+
+.btn-export {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text-muted); font-family: 'Outfit', sans-serif;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  padding: 6px 14px; border-radius: var(--r-xs);
+  transition: all .2s; white-space: nowrap;
+}
+.btn-export:hover:not(:disabled) { color: var(--accent); background: var(--accent-dim); border-color: rgba(240,180,41,0.3); }
+.btn-export:disabled { opacity: .25; cursor: not-allowed; }
+.btn-export svg { width: 13px; height: 13px; }
+
+.results-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+/* States */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%; gap: 20px; padding: 40px;
+}
+
+.empty-visual { position: relative; }
+
+.empty-ring {
+  width: 80px; height: 80px; border-radius: 50%;
+  border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+}
+.empty-ring::before {
+  content: ''; position: absolute;
+  width: 100px; height: 100px; border-radius: 50%;
+  border: 1px dashed var(--border);
+  top: -10px; left: -10px;
+  animation: spin-slow 12s linear infinite;
+}
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+
+.empty-text { text-align: center; }
+.empty-text h3 { font-size: 15px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+.empty-text p { font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+.loading-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%; gap: 24px;
+}
+
+.loader { position: relative; width: 48px; height: 48px; }
+.loader-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid transparent; border-top-color: var(--accent);
+  animation: spin .9s linear infinite;
+}
+.loader-ring-2 {
+  position: absolute; inset: 6px; border-radius: 50%;
+  border: 2px solid transparent; border-top-color: rgba(240,180,41,0.35);
+  animation: spin 1.4s linear infinite reverse;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-info { text-align: center; }
+.loading-info h4 { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+.loading-info p { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); }
+.loading-dots::after { content: ''; animation: dots 1.4s steps(3,end) infinite; }
+@keyframes dots { 0%,20%{content:''} 40%{content:'.'} 60%{content:'..'} 80%,100%{content:'...'} }
+
+.error-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100%; gap: 16px; padding: 40px; text-align: center;
+}
+.error-box {
+  background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.2);
+  border-radius: var(--r); padding: 16px 24px; max-width: 480px;
+}
+.error-title { font-size: 13px; font-weight: 600; color: var(--error); margin-bottom: 6px; }
+.error-msg { color: rgba(248,113,113,0.7); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; word-break: break-all; line-height: 1.7; }
+
+/* Table */
+.table-wrap { padding: 24px 28px; overflow-x: auto; }
+
+.data-table {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+}
+
+.data-table thead th {
+  background: var(--surface); border: 1px solid var(--border2);
+  padding: 10px 16px; text-align: left;
+  font-size: 10px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent); white-space: nowrap;
+}
+.data-table thead th:first-child { border-radius: var(--r-xs) 0 0 0; }
+.data-table thead th:last-child { border-radius: 0 var(--r-xs) 0 0; }
+
+.data-table tbody tr { transition: background .12s; }
+.data-table tbody tr:hover td { background: rgba(255,255,255,0.025); }
+
+.data-table tbody td {
+  border: 1px solid var(--border); border-top: none;
+  padding: 10px 16px; color: var(--text);
+  word-break: break-word; max-width: 280px; vertical-align: top;
+}
+
+.row-num { color: var(--text-dim) !important; text-align: center; width: 44px; user-select: none; font-size: 10px; }
+
+.stats-bar {
+  display: flex; align-items: center; gap: 16px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+}
+.stat-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); }
+.stat-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 5px var(--success); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Mobile FAB */
+.mobile-toggle {
+  display: none; position: fixed; bottom: 20px; right: 20px; z-index: 200;
+  width: 52px; height: 52px; background: var(--accent); border: none;
+  border-radius: 50%; cursor: pointer;
+  align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(240,180,41,0.4);
+  transition: transform .2s; color: #000;
+}
+.mobile-toggle:hover { transform: scale(1.08); }
+
+.sidebar-overlay {
+  display: none; position: fixed; inset: 0;
+  
+  z-index: 150; opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: var(--r-sm); padding: 10px 18px;
+  font-size: 13px; font-weight: 500; color: var(--text);
+  z-index: 999; transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  display: flex; align-items: center; gap: 8px; white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .main { grid-template-columns: 1fr; }
+
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: min(400px, 92vw); z-index: 160;
+    transform: translateX(-110%);
+    transition: transform .35s cubic-bezier(.4,0,.2,1);
+    padding-top: 70px;
+    border-right: 1px solid var(--border2);
+  }
+  .sidebar.open { transform: translateX(0); box-shadow: 4px 0 40px rgba(0,0,0,0.5); }
+
+  .sidebar-overlay { display: block; }
+  .mobile-toggle { display: flex; }
+  .results-pane { min-height: calc(100vh - 61px); }
+  .results-topbar { padding: 0 16px; }
+  .table-wrap { padding: 16px; }
+  .btn-export span { display: none; }
+  .btn-export { padding: 6px 10px; }
+}
+
+@media (max-width: 480px) {
+  .nav { padding: 12px 16px; }
+  .nav-subtitle { display: none; }
+  .nav-pill { display: none; }
+  .results-topbar { height: 50px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <nav class="nav">
+    <div class="nav-brand">
+      <div class="nav-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </div>
+      <div>
+        <div class="nav-title">Web Scraper</div>
+        <div class="nav-subtitle">Extract structured data</div>
+      </div>
+    </div>
+    <div class="nav-pill">
+      <div class="status-dot"></div>
+      API Ready
+    </div>
+  </nav>
+
+  <div class="main">
+    <aside class="sidebar" id="sidebar">
+
+      <div class="section">
+        <div class="section-label">
+          <div class="section-label-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></div>
+          Target URL
+        </div>
+        <div class="input-group">
+          <div class="input-prefix">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+            https://
+          </div>
+          <input type="text" id="targetUrl" placeholder="example.com/products">
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="fields-header">
+          <div class="section-label" style="margin:0">
+            <div class="section-label-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+            Extraction Fields
+          </div>
+          <button class="btn-add" onclick="addField()">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Field
+          </button>
+        </div>
+        <div class="field-cols">
+          <div class="field-col-label">Label</div>
+          <div class="field-col-label">Description</div>
+        </div>
+        <div class="fields-list" id="fieldsList">
+          <div class="field-row">
+            <input type="text" class="field-input field-name" placeholder="e.g. title">
+            <input type="text" class="field-input field-desc" placeholder="Name of the product">
+            <button class="btn-remove" onclick="removeField(this)" title="Remove">×</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-label">
+          <div class="section-label-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+          Extraction Prompt
+          <span style="font-size:10px;font-weight:400;color:var(--text-dim);text-transform:none;letter-spacing:0;margin-left:4px;">optional</span>
+        </div>
+        <div class="textarea-group">
+          <textarea id="extractionPrompt" placeholder="Add extra context or instructions for the AI..."></textarea>
+        </div>
+      </div>
+
+      <button class="btn-run" id="runBtn" onclick="runScraper()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Run Scraper
+      </button>
+
+    </aside>
+
+    <main class="results-pane">
+      <div class="results-topbar">
+        <div class="results-left">
+          <span class="results-title">Results</span>
+          <div class="result-badge" id="resultBadge">
+            <div class="stat-dot"></div>
+            <span id="resultCount">0 records</span>
+          </div>
+        </div>
+        <div class="export-btns">
+          <button class="btn-export" id="csvBtn" onclick="exportCSV()" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>CSV</span>
+          </button>
+          <button class="btn-export" id="xlsxBtn" onclick="exportExcel()" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Excel</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="results-body" id="resultsBody">
+        <div class="empty-state">
+          <div class="empty-visual">
+            <div class="empty-ring">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </div>
+          </div>
+          <div class="empty-text">
+            <h3>No results yet</h3>
+            <p>Configure fields and run the scraper</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<button class="mobile-toggle" id="mobileToggle" onclick="toggleSidebar()" aria-label="Open panel">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+</button>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+  const API_KEY = '7b3e0f956d9887f8b201c07b8473c3ee';
+  const PROXY   = 'https://corsproxy.io/?';
+  const API_URL = 'https://api.parsera.org/v1/extract';
+  let scrapedData = [];
+  let sidebarOpen = false;
+
+  function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+    document.getElementById('sidebar').classList.toggle('open', sidebarOpen);
+    document.getElementById('sidebarOverlay').classList.toggle('active', sidebarOpen);
+    document.getElementById('mobileToggle').innerHTML = sidebarOpen
+      ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
+      : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
+  }
+
+  function addField() {
+    const list = document.getElementById('fieldsList');
+    const row = document.createElement('div');
+    row.className = 'field-row';
+    row.innerHTML = `
+      <input type="text" class="field-input field-name" placeholder="e.g. price">
+      <input type="text" class="field-input field-desc" placeholder="Price of the item">
+      <button class="btn-remove" onclick="removeField(this)" title="Remove">×</button>`;
+    list.appendChild(row);
+    row.querySelector('.field-name').focus();
+  }
+
+  function removeField(btn) {
+    if (document.querySelectorAll('.field-row').length <= 1) { showToast('⚠️ At least one field required'); return; }
+    btn.closest('.field-row').remove();
+  }
+
+  document.getElementById('targetUrl').addEventListener('blur', function() {
+    let v = this.value.trim();
+    if (v && !v.startsWith('http')) this.value = 'https://' + v;
+  });
+
+  document.getElementById('targetUrl').addEventListener('keydown', e => { if (e.key === 'Enter') runScraper(); });
+
+  async function runScraper() {
+    let url = document.getElementById('targetUrl').value.trim();
+    const prompt = document.getElementById('extractionPrompt').value.trim();
+    if (!url) return showToast('⚠️ Please enter a target URL');
+    if (!url.startsWith('http')) url = 'https://' + url;
+
+    const fields = [];
+    document.querySelectorAll('.field-row').forEach(row => {
+      const name = row.querySelector('.field-name').value.trim();
+      const desc = row.querySelector('.field-desc').value.trim();
+      if (name) fields.push({ name, description: desc || name });
+    });
+    if (!fields.length) return showToast('⚠️ Add at least one extraction field');
+
+    if (sidebarOpen && window.innerWidth <= 900) toggleSidebar();
+    showLoading();
+
+    const attributes = {};
+    fields.forEach(f => { attributes[f.name] = f.description; });
+    const payload = { url, attributes };
+    if (prompt) payload.prompt = prompt;
+
+    try {
+      const res = await fetch(PROXY + encodeURIComponent(API_URL), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-KEY': API_KEY },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data?.detail || data?.message || data?.error || `HTTP ${res.status}`); return; }
+      const rows = Array.isArray(data) ? data : (data.data || data.results || [data]);
+      scrapedData = rows;
+      renderTable(rows);
+    } catch (err) {
+      showError(err.message || 'Network error. Please check your connection.');
+    }
+  }
+
+  function showLoading() {
+    setRunBtn(true); setExportDisabled(true);
+    document.getElementById('resultBadge').classList.remove('visible');
+    document.getElementById('resultsBody').innerHTML = `
+      <div class="loading-state">
+        <div class="loader"><div class="loader-ring"></div><div class="loader-ring-2"></div></div>
+        <div class="loading-info">
+          <h4>Extracting data<span class="loading-dots"></span></h4>
+          <p>AI is analyzing the page</p>
+        </div>
+      </div>`;
+  }
+
+  function showError(msg) {
+    setRunBtn(false); setExportDisabled(true);
+    document.getElementById('resultBadge').classList.remove('visible');
+    document.getElementById('resultsBody').innerHTML = `
+      <div class="error-state">
+        <div class="error-box">
+          <div class="error-title">Extraction Failed</div>
+          <div class="error-msg">${esc(msg)}</div>
+        </div>
+      </div>`;
+  }
+
+  function renderTable(rows) {
+    setRunBtn(false);
+    if (!rows || !rows.length) {
+      setExportDisabled(true);
+      document.getElementById('resultBadge').classList.remove('visible');
+      document.getElementById('resultsBody').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-visual"><div class="empty-ring"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div></div>
+          <div class="empty-text"><h3>No data found</h3><p>Page returned no matching results</p></div>
+        </div>`; return;
+    }
+    setExportDisabled(false);
+    const badge = document.getElementById('resultBadge');
+    badge.classList.add('visible');
+    document.getElementById('resultCount').textContent = `${rows.length} record${rows.length!==1?'s':''}`;
+
+    const cols = Object.keys(rows[0]);
+    const th = `<tr><th class="row-num">#</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>`;
+    const tb = rows.map((row,i)=>`<tr><td class="row-num">${i+1}</td>${cols.map(c=>`<td>${esc(String(row[c]??''))}</td>`).join('')}</tr>`).join('');
+
+    document.getElementById('resultsBody').innerHTML = `
+      <div class="table-wrap">
+        <table class="data-table"><thead>${th}</thead><tbody>${tb}</tbody></table>
+        <div class="stats-bar">
+          <div class="stat-item"><div class="stat-dot"></div>${rows.length} rows</div>
+          <div class="stat-item" style="color:var(--text-dim)">·</div>
+          <div class="stat-item">${cols.length} columns</div>
+        </div>
+      </div>`;
+  }
+
+  function setRunBtn(loading) {
+    const btn = document.getElementById('runBtn');
+    btn.disabled = loading;
+    btn.innerHTML = loading
+      ? `<div style="width:14px;height:14px;border:2px solid rgba(0,0,0,0.3);border-top-color:#000;border-radius:50%;animation:spin .9s linear infinite"></div> Scraping...`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run Scraper`;
+  }
+
+  function setExportDisabled(v) {
+    document.getElementById('csvBtn').disabled = v;
+    document.getElementById('xlsxBtn').disabled = v;
+  }
+
+  function exportCSV() {
+    if (!scrapedData.length) return;
+    const cols = Object.keys(scrapedData[0]);
+    const csv = [cols.join(','), ...scrapedData.map(r=>cols.map(c=>`"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))].join('\n');
+    dl(new Blob([csv],{type:'text/csv'}), 'scraped_data.csv');
+    showToast('✅ CSV downloaded');
+  }
+
+  function exportExcel() {
+    if (!scrapedData.length) return;
+    const ws = XLSX.utils.json_to_sheet(scrapedData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Results');
+    XLSX.writeFile(wb, 'scraped_data.xlsx');
+    showToast('✅ Excel downloaded');
+  }
+
+  function dl(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>t.classList.remove('show'), 2800);
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
