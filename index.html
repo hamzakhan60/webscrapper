@@ -559,15 +559,29 @@ textarea::placeholder { color: var(--text-dim); }
   const API_ENDPOINT = '/api/scrape';
 
   let scrapedData = [];
-  let sidebarOpen = true;
+  const isMobile = () => window.innerWidth <= 900;
 
-  function toggleSidebar() {
-    sidebarOpen = !sidebarOpen;
+  // On mobile: restore saved state (default open=true). On desktop: always open.
+  let sidebarOpen = isMobile()
+    ? (localStorage.getItem('sidebarOpen') !== 'false')
+    : true;
+
+  function applySidebarState() {
     document.getElementById('sidebar').classList.toggle('open', sidebarOpen);
-    document.getElementById('sidebarOverlay').classList.toggle('active', sidebarOpen);
+    document.getElementById('sidebarOverlay').style.opacity = sidebarOpen ? '1' : '0';
+    document.getElementById('sidebarOverlay').style.pointerEvents = sidebarOpen ? 'auto' : 'none';
     document.getElementById('mobileToggle').innerHTML = sidebarOpen
       ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
       : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`;
+  }
+
+  // Apply saved state immediately on load
+  if (isMobile()) applySidebarState();
+
+  function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+    if (isMobile()) localStorage.setItem('sidebarOpen', sidebarOpen);
+    applySidebarState();
   }
 
   function addField() {
@@ -608,7 +622,7 @@ textarea::placeholder { color: var(--text-dim); }
     });
     if (!fields.length) return showToast('⚠️ Add at least one extraction field');
 
-    if (sidebarOpen && window.innerWidth <= 900) toggleSidebar();
+    if (sidebarOpen && isMobile()) toggleSidebar();
     showLoading();
 
     const attributes = {};
