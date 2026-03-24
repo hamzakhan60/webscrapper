@@ -634,7 +634,7 @@ textarea::placeholder { color: var(--text-dim); }
     if (prompt) payload.prompt = prompt;
 
     try {
-      const res = await fetch(PROXY + encodeURIComponent(API_URL), {
+      const res = await fetch(encodeURIComponent(API_URL), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-KEY': API_KEY },
         body: JSON.stringify(payload)
